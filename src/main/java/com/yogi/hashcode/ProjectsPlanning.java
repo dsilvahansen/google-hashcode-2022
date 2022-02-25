@@ -3,6 +3,7 @@ package com.yogi.hashcode;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
@@ -34,19 +35,25 @@ public class ProjectsPlanning {
         // projects
         // skills
         // Skill1 -> [{Person1, Skill1, level1}, {Person2, Skill1, level1}]
+
+        String fileName = "a_an_example.in.txt";
+//        String fileName = "b_better_start_small.in.txt";
+//        String fileName = "c_collaboration.in.txt";
+//        String fileName = "d_dense_schedule.in.txt";
+//        String fileName = "e_exceptional_skills.in.txt";
+//        String fileName = "f_find_great_mentors.in.txt";
         HashMap<String, PriorityQueue<Person>> people = new HashMap<>();
         PriorityQueue<Project> projects = new PriorityQueue<>(Project::compare);
         HashSet<String> listOfSkillNamesFromPeople = new HashSet<>();
         List<Person> listOfPeople = new ArrayList<>();
-        List<Pair<String, List<Person>>> pickedProjects = new ArrayList<>();
-        parseInput(people, projects, listOfSkillNamesFromPeople, listOfPeople);
-        Integer maxNumberOfDays = projects.stream().map(project -> project.bestBefore).max(Integer::compare).get();//here
+        List<Pair<Project, Map<String,List<Person>>>> pickedProjects = new ArrayList<>();
+        parseInput(fileName, people, projects, listOfSkillNamesFromPeople, listOfPeople);
 
         for (Project project : projects) {
             // get people
 
             List<Person> pickedPeople = new ArrayList<>();
-            Map<Person, Pair<String, Integer>> pickedPeopleMap = new HashMap<>();
+            Map<String, List<Person>> pickedPeopleMapBySkill = new HashMap<>();
             for (String resourceSkillNameNeeded : project.skills.keySet()) {
                 // c++
                 PriorityQueue<Integer> resourceSkillLevelsNeeded = project.skills.get(resourceSkillNameNeeded);
@@ -58,9 +65,9 @@ public class ProjectsPlanning {
                     Person theGuy = getTheGuy(resourceSkillNameNeeded, skillLevel, peopleEligible);
                     if (theGuy != null) {
                         pickedPeople.add(theGuy);
-                        pickedPeopleMap.put(theGuy, new HashMap<String, Integer>(){{
-                            put(resourceSkillNameNeeded, skillLevel);
-                        }});
+                        List<Person> list = pickedPeopleMapBySkill.getOrDefault(resourceSkillNameNeeded, new ArrayList<>());
+                        list.add(theGuy);
+                        pickedPeopleMapBySkill.put(resourceSkillNameNeeded,list);
                     } else {
                         break;
                     }
@@ -72,31 +79,15 @@ public class ProjectsPlanning {
             if (pickedPeople.size() == project.requiredPeople) {
                 // found required people
                 project.projectPlanned = true;
-                pickedProjects.add(Pair.of(project.projectName, pickedPeople));
-                incrementSkills(pickedPeopleMap);
-                pickedPeople.stream().forEach(p -> p.isAssigned = false);
-                maxNumberOfDays -= project.days; //here
-
+                pickedProjects.add(Pair.of(project, pickedPeopleMapBySkill));
             } else {
                 pickedPeople.stream().forEach(p -> p.isAssigned = false);
             }
+
         }
 
         // assigned for all projects
-
-
-        FileWriter fileWriter = new FileWriter("output.txt");
-
-        fileWriter.write(pickedProjects.size() + "\n");
-
-        for (Pair<String, List<Person>> project : pickedProjects) {
-            fileWriter.write(project.getLeft() + "\n");
-            for (Person p : project.getRight()) {
-                fileWriter.write(p.personName + " ");
-            }
-            fileWriter.write("\n");
-        }
-        fileWriter.close();
+        printOutput(fileName, pickedProjects);
 
         /**
          * 3
@@ -111,10 +102,30 @@ public class ProjectsPlanning {
 
     }
 
-    private static void incrementSkills(Map<Person, Map<String, Integer>> pickedPeopleMap) {
-        for(Person person: pickedPeopleMap.keySet()){
-            pickedPeopleMap.get(person).forEach((a,d) ->{} );
+    private static void printOutput(String fileName, List<Pair<Project, Map<String, List<Person>>>> pickedProjects) throws IOException {
+        FileWriter fileWriter = new FileWriter("output\\out_" + fileName);
+
+        fileWriter.write(pickedProjects.size() + "\n");
+
+        for (Pair<Project, Map<String, List<Person>>> project : pickedProjects) {
+            Project currProject = project.getLeft();
+            fileWriter.write(currProject.projectName + "\n");
+
+            for (Pair<String, Integer> p :project.getLeft().skillsInOrder) {
+                //findIndex
+                String skillName = p.getLeft();
+                List<Person> peeps = project.getRight().get(skillName);
+                for(Person peep: peeps){
+                    if(peep.skills.get(skillName)>=p.getRight()){
+                        fileWriter.write(peep.personName + " ");
+                        peeps.remove(peep);
+                        break;
+                    }
+                }
+            }
+            fileWriter.write("\n");
         }
+        fileWriter.close();
     }
 
     private static Person getTheGuy(String resourceSkillNameNeeded, Integer skillLevel, PriorityQueue<Person> peopleEligible) {
@@ -142,8 +153,60 @@ public class ProjectsPlanning {
     // project priority -> more skills required (idea is to mentor as many people as possible here)
     //  job scheduling, coin problem
 
-    private static void parseInput(HashMap<String, PriorityQueue<Person>> people, PriorityQueue<Project> projects, HashSet<String> listOfSkillNames, List<Person> listOfPeople) throws IOException {
-        File f = new File("C:\\dev\\assignment1\\src\\main\\java\\com\\yogi\\hashcode\\a_an_example.in.txt");
+
+    static class Person {
+        String personName;
+        Map<String, Integer> skills;
+        boolean isAssigned;
+        List<Project> projectsAssigned;
+
+        public Person(String personName) {
+            this.personName = personName;
+            this.skills = new HashMap<>();
+            this.isAssigned = false;
+            this.projectsAssigned = new ArrayList<>();
+        }
+
+        public int getSkillLevel(String skill) {
+            return skills.getOrDefault(skill, 0);
+        }
+    }
+
+    static class Project {
+        String projectName;
+        int days;
+        int score;
+        int bestBefore;
+        int requiredPeople;
+        Map<String, PriorityQueue<Integer>> skills;
+        List<Pair<String, Integer>> skillsInOrder;
+        boolean projectPlanned;
+
+        public Project(String projectName, int days, int score, int bestBefore, int requiredPeople, Map<String, PriorityQueue<Integer>> skills, List<Pair<String, Integer>> skillsInOrder) {
+            this.projectName = projectName;
+            this.days = days;
+            this.score = score;
+            this.bestBefore = bestBefore;
+            this.requiredPeople = requiredPeople;
+            this.projectPlanned = false;
+            this.skills = skills;
+            this.skillsInOrder = skillsInOrder;
+        }
+
+        public static int compare(Project a, Project b) {
+            return b.score - a.score;
+        }
+        // score/(requiredPeople*days) -> score priority
+
+    }
+
+
+//
+//    c++ -> {4,a},{4,b},{3,c},{1,d}, {0, e}
+//    python -> {1,a}
+
+    private static void parseInput(String fileName, HashMap<String, PriorityQueue<Person>> people, PriorityQueue<Project> projects, HashSet<String> listOfSkillNames, List<Person> listOfPeople) throws IOException {
+        File f = new File("input\\" + fileName);
         Scanner sc = new Scanner(f);
 
         String[] noOfRequest = sc.nextLine().split(" ");
@@ -181,61 +244,16 @@ public class ProjectsPlanning {
             //     * C++ 2
             //
             Map<String, PriorityQueue<Integer>> skills = new HashMap<>();
+            List<Pair<String, Integer>> skillsInOrder = new ArrayList<>();
             for (int j = 0; j < r; j++) {
                 String[] skillAndLevel = sc.nextLine().split(" ");
                 PriorityQueue<Integer> resources = skills.getOrDefault(skillAndLevel[0], new PriorityQueue<>((x, y) -> y - x));
                 resources.add(Integer.parseInt(skillAndLevel[1]));
                 skills.put(skillAndLevel[0], resources);
+                skillsInOrder.add(Pair.of(skillAndLevel[0], Integer.parseInt(skillAndLevel[1])));
             }
-            Project project = new Project(projectName, d, s, b, r, skills);
+            Project project = new Project(projectName, d, s, b, r, skills, skillsInOrder);
             projects.add(project);
-        }
-
-
-    }
-
-    static class Person {
-        String personName;
-        Map<String, Integer> skills;
-        boolean isAssigned;
-
-        public Person(String personName) {
-            this.personName = personName;
-            this.skills = new HashMap<>();
-            this.isAssigned = false;
-        }
-
-        public int getSkillLevel(String skill) {
-            return skills.getOrDefault(skill, 0);
-        }
-    }
-
-
-//
-//    c++ -> {4,a},{4,b},{3,c},{1,d}, {0, e}
-//    python -> {1,a}
-
-    static class Project {
-        String projectName;
-        int days;
-        int score;
-        int bestBefore;
-        int requiredPeople;
-        Map<String, PriorityQueue<Integer>> skills;
-        boolean projectPlanned;
-
-        public Project(String projectName, int days, int score, int bestBefore, int requiredPeople, Map<String, PriorityQueue<Integer>> skills) {
-            this.projectName = projectName;
-            this.days = days;
-            this.score = score;
-            this.bestBefore = bestBefore;
-            this.requiredPeople = requiredPeople;
-            this.projectPlanned = false;
-            this.skills = skills;
-        }
-
-        public static int compare(Project a, Project b) {
-            return b.score - a.score;
         }
     }
 
