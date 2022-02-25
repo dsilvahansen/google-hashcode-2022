@@ -3,7 +3,6 @@ package com.yogi.hashcode;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
@@ -36,17 +35,17 @@ public class ProjectsPlanning {
         // skills
         // Skill1 -> [{Person1, Skill1, level1}, {Person2, Skill1, level1}]
 
-        String fileName = "a_an_example.in.txt";
+//        String fileName = "a_an_example.in.txt";
 //        String fileName = "b_better_start_small.in.txt";
 //        String fileName = "c_collaboration.in.txt";
 //        String fileName = "d_dense_schedule.in.txt";
 //        String fileName = "e_exceptional_skills.in.txt";
-//        String fileName = "f_find_great_mentors.in.txt";
+        String fileName = "f_find_great_mentors.in.txt";
         HashMap<String, PriorityQueue<Person>> people = new HashMap<>();
         PriorityQueue<Project> projects = new PriorityQueue<>(Project::compare);
         HashSet<String> listOfSkillNamesFromPeople = new HashSet<>();
         List<Person> listOfPeople = new ArrayList<>();
-        List<Pair<Project, Map<String,List<Person>>>> pickedProjects = new ArrayList<>();
+        List<Pair<Project, Map<String, List<Person>>>> pickedProjects = new ArrayList<>();
         parseInput(fileName, people, projects, listOfSkillNamesFromPeople, listOfPeople);
 
         for (Project project : projects) {
@@ -67,7 +66,7 @@ public class ProjectsPlanning {
                         pickedPeople.add(theGuy);
                         List<Person> list = pickedPeopleMapBySkill.getOrDefault(resourceSkillNameNeeded, new ArrayList<>());
                         list.add(theGuy);
-                        pickedPeopleMapBySkill.put(resourceSkillNameNeeded,list);
+                        pickedPeopleMapBySkill.put(resourceSkillNameNeeded, list);
                     } else {
                         break;
                     }
@@ -111,12 +110,12 @@ public class ProjectsPlanning {
             Project currProject = project.getLeft();
             fileWriter.write(currProject.projectName + "\n");
 
-            for (Pair<String, Integer> p :project.getLeft().skillsInOrder) {
+            for (Pair<String, Integer> p : project.getLeft().skillsInOrder) {
                 //findIndex
                 String skillName = p.getLeft();
                 List<Person> peeps = project.getRight().get(skillName);
-                for(Person peep: peeps){
-                    if(peep.skills.get(skillName)>=p.getRight()){
+                for (Person peep : peeps) {
+                    if (peep.skills.get(skillName) >= p.getRight()) {
                         fileWriter.write(peep.personName + " ");
                         peeps.remove(peep);
                         break;
@@ -152,58 +151,6 @@ public class ProjectsPlanning {
     // give preference to growth
     // project priority -> more skills required (idea is to mentor as many people as possible here)
     //  job scheduling, coin problem
-
-
-    static class Person {
-        String personName;
-        Map<String, Integer> skills;
-        boolean isAssigned;
-        List<Project> projectsAssigned;
-
-        public Person(String personName) {
-            this.personName = personName;
-            this.skills = new HashMap<>();
-            this.isAssigned = false;
-            this.projectsAssigned = new ArrayList<>();
-        }
-
-        public int getSkillLevel(String skill) {
-            return skills.getOrDefault(skill, 0);
-        }
-    }
-
-    static class Project {
-        String projectName;
-        int days;
-        int score;
-        int bestBefore;
-        int requiredPeople;
-        Map<String, PriorityQueue<Integer>> skills;
-        List<Pair<String, Integer>> skillsInOrder;
-        boolean projectPlanned;
-
-        public Project(String projectName, int days, int score, int bestBefore, int requiredPeople, Map<String, PriorityQueue<Integer>> skills, List<Pair<String, Integer>> skillsInOrder) {
-            this.projectName = projectName;
-            this.days = days;
-            this.score = score;
-            this.bestBefore = bestBefore;
-            this.requiredPeople = requiredPeople;
-            this.projectPlanned = false;
-            this.skills = skills;
-            this.skillsInOrder = skillsInOrder;
-        }
-
-        public static int compare(Project a, Project b) {
-            return b.score - a.score;
-        }
-        // score/(requiredPeople*days) -> score priority
-
-    }
-
-
-//
-//    c++ -> {4,a},{4,b},{3,c},{1,d}, {0, e}
-//    python -> {1,a}
 
     private static void parseInput(String fileName, HashMap<String, PriorityQueue<Person>> people, PriorityQueue<Project> projects, HashSet<String> listOfSkillNames, List<Person> listOfPeople) throws IOException {
         File f = new File("input\\" + fileName);
@@ -255,6 +202,57 @@ public class ProjectsPlanning {
             Project project = new Project(projectName, d, s, b, r, skills, skillsInOrder);
             projects.add(project);
         }
+    }
+
+    static class Person {
+        String personName;
+        Map<String, Integer> skills;
+        boolean isAssigned;
+        List<Project> projectsAssigned;
+
+        public Person(String personName) {
+            this.personName = personName;
+            this.skills = new HashMap<>();
+            this.isAssigned = false;
+            this.projectsAssigned = new ArrayList<>();
+        }
+
+        public int getSkillLevel(String skill) {
+            return skills.getOrDefault(skill, 0);
+        }
+    }
+
+
+//
+//    c++ -> {4,a},{4,b},{3,c},{1,d}, {0, e}
+//    python -> {1,a}
+
+    static class Project {
+        String projectName;
+        int days;
+        int score;
+        int bestBefore;
+        int requiredPeople;
+        Map<String, PriorityQueue<Integer>> skills;
+        List<Pair<String, Integer>> skillsInOrder;
+        boolean projectPlanned;
+
+        public Project(String projectName, int days, int score, int bestBefore, int requiredPeople, Map<String, PriorityQueue<Integer>> skills, List<Pair<String, Integer>> skillsInOrder) {
+            this.projectName = projectName;
+            this.days = days;
+            this.score = score;
+            this.bestBefore = bestBefore;
+            this.requiredPeople = requiredPeople;
+            this.projectPlanned = false;
+            this.skills = skills;
+            this.skillsInOrder = skillsInOrder;
+        }
+
+        public static int compare(Project a, Project b) {
+            return b.score - a.score;
+        }
+        // score/(requiredPeople*days) -> score priority
+
     }
 
 
