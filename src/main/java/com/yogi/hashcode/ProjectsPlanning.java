@@ -1,11 +1,13 @@
 package com.yogi.hashcode;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class ProjectsPlanning {
 
@@ -41,37 +43,37 @@ public class ProjectsPlanning {
 //        String fileName = "d_dense_schedule.in.txt";
 //        String fileName = "e_exceptional_skills.in.txt";
         String fileName = "f_find_great_mentors.in.txt";
-        HashMap<String, PriorityQueue<Person>> people = new HashMap<>();
+        HashMap<String, PriorityQueue<Person>> skillsOfPeopleByLevel = new HashMap<>();
         PriorityQueue<Project> projects = new PriorityQueue<>(Project::compare);
         HashSet<String> listOfSkillNamesFromPeople = new HashSet<>();
         List<Person> listOfPeople = new ArrayList<>();
         List<Pair<Project, Map<String, List<Person>>>> pickedProjects = new ArrayList<>();
-        parseInput(fileName, people, projects, listOfSkillNamesFromPeople, listOfPeople);
+        parseInput(fileName, skillsOfPeopleByLevel, projects, listOfSkillNamesFromPeople, listOfPeople);
 
         for (Project project : projects) {
             // get people
 
             List<Person> pickedPeople = new ArrayList<>();
             Map<String, List<Person>> pickedPeopleMapBySkill = new HashMap<>();
-            for (String resourceSkillNameNeeded : project.skills.keySet()) {
+            List<String> projectSkillName = project.projectSkills.stream().map(s -> s.skillName).collect(Collectors.toList());
+            // for every skill in the project, from high level to small level
+            for (Skill projectSkill : project.projectSkills) {
                 // c++
-                PriorityQueue<Integer> resourceSkillLevelsNeeded = project.skills.get(resourceSkillNameNeeded);
-                PriorityQueue<Person> peopleEligible = people.getOrDefault(resourceSkillNameNeeded, new PriorityQueue<>());
+//                PriorityQueue<Integer> resourceSkillLevelsNeeded = project.skills.get(resourceSkillNameNeeded);
+                PriorityQueue<Person> peopleEligible = skillsOfPeopleByLevel.getOrDefault(projectSkill.skillName, new PriorityQueue<>());
                 // peopleEligible = c++ -> {10, Nikhil}, {0, Yogi}
-                for (Integer skillLevel : resourceSkillLevelsNeeded) {
-                    // resourceSkillNameNeeded  -> resourceSkillLevelsNeeded
-                    // c++                      -> [5, 5]
-                    Person theGuy = getTheGuy(resourceSkillNameNeeded, skillLevel, peopleEligible);
-                    if (theGuy != null) {
-                        pickedPeople.add(theGuy);
-                        List<Person> list = pickedPeopleMapBySkill.getOrDefault(resourceSkillNameNeeded, new ArrayList<>());
-                        list.add(theGuy);
-                        pickedPeopleMapBySkill.put(resourceSkillNameNeeded, list);
-                    } else {
-                        break;
-                    }
-                    theGuy.isAssigned = true;
+                // resourceSkillNameNeeded  -> resourceSkillLevelsNeeded
+                // c++                      -> [5, 5]
+                Person theGuy = getTheGuy(projectSkill, peopleEligible, pickedPeople);
+                if (theGuy != null) {
+                    pickedPeople.add(theGuy);
+                    List<Person> list = pickedPeopleMapBySkill.getOrDefault(projectSkill.skillName, new ArrayList<>());
+                    list.add(theGuy);
+                    pickedPeopleMapBySkill.put(projectSkill.skillName, list);
+                } else {
+                    break;
                 }
+                theGuy.isAssigned = true;
 
             }
 
@@ -80,7 +82,7 @@ public class ProjectsPlanning {
                 project.projectPlanned = true;
                 pickedProjects.add(Pair.of(project, pickedPeopleMapBySkill));
             } else {
-                pickedPeople.stream().forEach(p -> p.isAssigned = false);
+                pickedPeople.forEach(p -> p.isAssigned = false);
             }
 
         }
@@ -102,7 +104,7 @@ public class ProjectsPlanning {
     }
 
     private static void printOutput(String fileName, List<Pair<Project, Map<String, List<Person>>>> pickedProjects) throws IOException {
-        FileWriter fileWriter = new FileWriter("output\\out_" + fileName);
+        FileWriter fileWriter = new FileWriter("output\\out_iter1_" + fileName);
 
         fileWriter.write(pickedProjects.size() + "\n");
 
@@ -115,7 +117,7 @@ public class ProjectsPlanning {
                 String skillName = p.getLeft();
                 List<Person> peeps = project.getRight().get(skillName);
                 for (Person peep : peeps) {
-                    if (peep.skills.get(skillName) >= p.getRight()) {
+                    if (peep.getSkillLevel(skillName) >= p.getRight()) {
                         fileWriter.write(peep.personName + " ");
                         peeps.remove(peep);
                         break;
@@ -127,13 +129,16 @@ public class ProjectsPlanning {
         fileWriter.close();
     }
 
-    private static Person getTheGuy(String resourceSkillNameNeeded, Integer skillLevel, PriorityQueue<Person> peopleEligible) {
+    private static Person getTheGuy(Skill projectSkill, PriorityQueue<Person> peopleEligible, List<Person> pickedPeople) {
+
         for (Person guy : peopleEligible) {
-            if (guy.getSkillLevel(resourceSkillNameNeeded) < skillLevel) {
-                return null;
+            if (guy.getSkillLevel(projectSkill.skillName) < projectSkill.skillLevel - 1) {
+                continue;
             }
             if (!guy.isAssigned) {
-                return guy;
+                if (guy.getSkillLevel(projectSkill.skillName) >= projectSkill.skillLevel || (projectSkill.skillLevel - guy.getSkillLevel(projectSkill.skillName) == 1 && Person.isSkilledIn(pickedPeople, projectSkill))) {
+                    return guy;
+                }
             }
         }
         return null;
@@ -152,7 +157,7 @@ public class ProjectsPlanning {
     // project priority -> more skills required (idea is to mentor as many people as possible here)
     //  job scheduling, coin problem
 
-    private static void parseInput(String fileName, HashMap<String, PriorityQueue<Person>> people, PriorityQueue<Project> projects, HashSet<String> listOfSkillNames, List<Person> listOfPeople) throws IOException {
+    private static void parseInput(String fileName, HashMap<String, PriorityQueue<Person>> skillsOfPeopleByLevel, PriorityQueue<Project> projects, HashSet<String> listOfSkillNames, List<Person> listOfPeople) throws IOException {
         File f = new File("input\\" + fileName);
         Scanner sc = new Scanner(f);
 
@@ -165,17 +170,18 @@ public class ProjectsPlanning {
             for (int j = 0; j < noOfSkills; j++) {
                 String[] skillAndLevel = sc.nextLine().split(" ");
                 listOfSkillNames.add(skillAndLevel[0]);
-                person.skills.put(skillAndLevel[0], Integer.parseInt(skillAndLevel[1]));
+                person.skills.add(new Skill(skillAndLevel[0], Integer.parseInt(skillAndLevel[1]), true));
             }
             listOfPeople.add(person);
         }
 
         for (Person p : listOfPeople) {
             for (String s : listOfSkillNames) {
-                PriorityQueue<Person> skillQueue = people.getOrDefault(s,
-                        new PriorityQueue<>((a, b) -> b.getSkillLevel(s) - a.getSkillLevel(s)));
+                // trying out assigning first available lowest skill guy possible
+                PriorityQueue<Person> skillQueue = skillsOfPeopleByLevel.getOrDefault(s,
+                        new PriorityQueue<>(Comparator.comparingInt(personA -> personA.getSkillLevel(s))));
                 skillQueue.add(p);
-                people.put(s, skillQueue);
+                skillsOfPeopleByLevel.put(s, skillQueue);
             }
         }
 
@@ -190,38 +196,63 @@ public class ProjectsPlanning {
             //  HTML 3
             //     * C++ 2
             //
-            Map<String, PriorityQueue<Integer>> skills = new HashMap<>();
+//            Map<String, PriorityQueue<Integer>> skills = new HashMap<>();
+            PriorityQueue<Skill> projectSkills = new PriorityQueue<>((skillA, skillB) -> skillB.skillLevel - skillA.skillLevel);
             List<Pair<String, Integer>> skillsInOrder = new ArrayList<>();
             for (int j = 0; j < r; j++) {
                 String[] skillAndLevel = sc.nextLine().split(" ");
-                PriorityQueue<Integer> resources = skills.getOrDefault(skillAndLevel[0], new PriorityQueue<>((x, y) -> y - x));
-                resources.add(Integer.parseInt(skillAndLevel[1]));
-                skills.put(skillAndLevel[0], resources);
+                projectSkills.add(new Skill(skillAndLevel[0], Integer.parseInt(skillAndLevel[1]), false));
                 skillsInOrder.add(Pair.of(skillAndLevel[0], Integer.parseInt(skillAndLevel[1])));
+//                PriorityQueue<Integer> resources = skills.getOrDefault(skillAndLevel[0], new PriorityQueue<>((x, y) -> y - x));
+//                resources.add(Integer.parseInt(skillAndLevel[1]));
+//                skills.put(skillAndLevel[0], resources);
             }
-            Project project = new Project(projectName, d, s, b, r, skills, skillsInOrder);
+            Project project = new Project(projectName, d, s, b, r, projectSkills, null, skillsInOrder);
             projects.add(project);
         }
     }
 
     static class Person {
         String personName;
-        Map<String, Integer> skills;
+        Set<Skill> skills;
         boolean isAssigned;
         List<Project> projectsAssigned;
 
         public Person(String personName) {
             this.personName = personName;
-            this.skills = new HashMap<>();
+            this.skills = new HashSet<>();
             this.isAssigned = false;
             this.projectsAssigned = new ArrayList<>();
         }
 
-        public int getSkillLevel(String skill) {
-            return skills.getOrDefault(skill, 0);
+        // check if any of the person in the pickedPeople of the project has the said skill at the given level or higher
+        public static boolean isSkilledIn(List<Person> pickedPeople, Skill projectSkill) {
+            for (Person person : pickedPeople) {
+                if (person.getSkillLevel(projectSkill.skillName) >= projectSkill.skillLevel)
+                    return true;
+            }
+            return false;
+        }
+
+        public Integer getSkillLevel(String skill) {
+            Optional<Skill> personSkill = skills.stream().filter(s -> StringUtils.equals(s.skillName, skill)).findFirst();
+            return personSkill.map(s -> s.skillLevel).orElse(0);
         }
     }
 
+
+    static class Skill {
+        String skillName;
+        int skillLevel;
+        boolean isPersonSkill;
+
+        public Skill(String skillName, int skillLevel, boolean isPersonSkill) {
+            this.skillName = skillName;
+            this.skillLevel = skillLevel;
+            this.isPersonSkill = isPersonSkill;
+        }
+
+    }
 
 //
 //    c++ -> {4,a},{4,b},{3,c},{1,d}, {0, e}
@@ -233,18 +264,19 @@ public class ProjectsPlanning {
         int score;
         int bestBefore;
         int requiredPeople;
-        Map<String, PriorityQueue<Integer>> skills;
+        PriorityQueue<Skill> projectSkills;
+        //        Map<String, PriorityQueue<Integer>> skills;
         List<Pair<String, Integer>> skillsInOrder;
         boolean projectPlanned;
 
-        public Project(String projectName, int days, int score, int bestBefore, int requiredPeople, Map<String, PriorityQueue<Integer>> skills, List<Pair<String, Integer>> skillsInOrder) {
+        public Project(String projectName, int days, int score, int bestBefore, int requiredPeople, PriorityQueue<Skill> projectSkills, Map<String, PriorityQueue<Integer>> skills, List<Pair<String, Integer>> skillsInOrder) {
             this.projectName = projectName;
             this.days = days;
             this.score = score;
             this.bestBefore = bestBefore;
             this.requiredPeople = requiredPeople;
             this.projectPlanned = false;
-            this.skills = skills;
+            this.projectSkills = projectSkills;
             this.skillsInOrder = skillsInOrder;
         }
 
