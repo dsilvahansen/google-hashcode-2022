@@ -117,7 +117,7 @@ public class ProjectsPlanning {
                 String skillName = p.getLeft();
                 List<Person> peeps = project.getRight().get(skillName);
                 for (Person peep : peeps) {
-                    if (peep.getSkillLevel(skillName) >= p.getRight()) {
+                    if (peep.getSkillLevel(skillName) >= p.getRight() - 1) {
                         fileWriter.write(peep.personName + " ");
                         peeps.remove(peep);
                         break;
