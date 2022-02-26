@@ -80,39 +80,47 @@ public class ProjectsPlanning {
     }
 
     private static void assignContributors(HashMap<String, PriorityQueue<Person>> skillsOfPeopleByLevel, PriorityQueue<Project> projects, List<Project> pickedProjects) {
-        for (Project project : projects) {
-            // get people
-            List<Person> pickedPeople = new ArrayList<>();
-            // for every skill in the project, from high level to small level
-            for (Skill projectSkill : project.projectSkills) {
-                // c++
-//                PriorityQueue<Integer> resourceSkillLevelsNeeded = project.skills.get(resourceSkillNameNeeded);
-                PriorityQueue<Person> peopleEligible = skillsOfPeopleByLevel.getOrDefault(projectSkill.skillName, new PriorityQueue<>());
-                // peopleEligible = c++ -> {10, Nikhil}, {0, Yogi}
-                // resourceSkillNameNeeded  -> resourceSkillLevelsNeeded
-                // c++                      -> [5, 5]
-                Person theGuy = getTheGuy(projectSkill, peopleEligible, pickedPeople);
-                if (theGuy != null) {
-                    pickedPeople.add(theGuy);
-                    project.skillsInOrder.put(projectSkill, theGuy);
-                    theGuy.isAssigned = true;
-                } else {
-                    break;
+        int projectInLoop;
+        do {
+            projectInLoop = 0;
+            for (Project project : projects) {
+                if(project.projectPlanned){
+                    continue;
                 }
-            }
+                // get people
+                List<Person> pickedPeople = new ArrayList<>();
+                // for every skill in the project, from high level to small level
+                for (Skill projectSkill : project.projectSkills) {
+                    // c++
+//                PriorityQueue<Integer> resourceSkillLevelsNeeded = project.skills.get(resourceSkillNameNeeded);
+                    PriorityQueue<Person> peopleEligible = skillsOfPeopleByLevel.getOrDefault(projectSkill.skillName, new PriorityQueue<>());
+                    // peopleEligible = c++ -> {10, Nikhil}, {0, Yogi}
+                    // resourceSkillNameNeeded  -> resourceSkillLevelsNeeded
+                    // c++                      -> [5, 5]
+                    Person theGuy = getTheGuy(projectSkill, peopleEligible, pickedPeople);
+                    if (theGuy != null) {
+                        pickedPeople.add(theGuy);
+                        project.skillsInOrder.put(projectSkill, theGuy);
+                        theGuy.isAssigned = true;
+                    } else {
+                        break;
+                    }
+                }
 
-            if (pickedPeople.size() == project.requiredPeople) {
-                // found required people
-                project.projectPlanned = true;
-                incrementSkillAndUsedDays(project);
-                pickedProjects.add(project);
-            } else {
-                project.skillsInOrder.keySet().forEach(skill -> project.skillsInOrder.put(skill, null));
+                if (pickedPeople.size() == project.requiredPeople) {
+                    // found required people
+                    projectInLoop++;
+                    project.projectPlanned = true;
+                    incrementSkillAndUsedDays(project);
+                    pickedProjects.add(project);
+                } else {
+                    project.skillsInOrder.keySet().forEach(skill -> project.skillsInOrder.put(skill, null));
+                }
+                pickedPeople.parallelStream().forEach(p -> {
+                    p.isAssigned = false;
+                });
             }
-            pickedPeople.parallelStream().forEach(p -> {
-                p.isAssigned = false;
-            });
-        }
+        }while (projectInLoop > 0);
     }
 
     private static void incrementSkillAndUsedDays(Project project) {
@@ -126,8 +134,11 @@ public class ProjectsPlanning {
         }
     }
 
+    // iter3 - projects ordered by bestbefore
+    // iter4 - projects ordered by score and running as long as atleast one project is picked
+
     private static void printOutput(String fileName, List<Project> pickedProjects) throws IOException {
-        FileWriter fileWriter = new FileWriter("output\\out_iter2_" + fileName);
+        FileWriter fileWriter = new FileWriter("output\\out_iter4_" + fileName);
 
         fileWriter.write(pickedProjects.size() + "\n");
 
@@ -196,7 +207,11 @@ public class ProjectsPlanning {
                 skillsOfPeopleByLevel.put(s, skillQueue);
             }
         }
-
+        //        the name of the project (ASCII string of at most 20 characters, all of which are lowercase or uppercase English alphabet letters a-z and A-Z or numbers 0-9),
+        //                an integer Di (1 ≤Di ≤ 105) – the number of days it takes to complete the project,
+        //        an integer Si (1 ≤ Si ≤ 105) – the score awarded for project’s completion,
+        //        an integer Bi (1 ≤ Bi ≤ 105) – the “best before” day for the project,
+        //        an integer Ri (1 ≤ Ri ≤ 100) – the number of roles in the project.
         int noOfProjects = Integer.parseInt(noOfRequest[1]);
         for (int i = 0; i < noOfProjects; i++) {
             String[] projectDesc = sc.nextLine().split(" ");
@@ -321,6 +336,8 @@ public class ProjectsPlanning {
 
         public static int compare(Project a, Project b) {
             return b.score - a.score;
+//            return a.bestBefore - b.bestBefore;
+//            return (b.score / (b.days * b.bestBefore)) - (a.score / (a.days * a.bestBefore));
         }
 
         @Override
